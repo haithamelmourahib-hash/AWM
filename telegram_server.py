@@ -1,8 +1,8 @@
-from telethon import TelegramClient
+from telethon.sync import TelegramClient
 from telethon.sessions import StringSession
 from flask import Flask, Response, request
 from flask_cors import CORS
-import os, asyncio
+import os
 
 API_ID = int(os.environ['API_ID'])
 API_HASH = os.environ['API_HASH']
@@ -18,13 +18,11 @@ def health():
 
 @app.route('/video/<int:msg_id>')
 def get_video(msg_id):
-    async def generate():
-        client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
-        await client.connect()
-        msg = await client.get_messages(CHANNEL, ids=msg_id)
-        async for chunk in client.iter_download(msg.media):
-            yield chunk
-        await client.disconnect()
+    def generate():
+        with TelegramClient(StringSession(SESSION), API_ID, API_HASH) as client:
+            msg = client.get_messages(CHANNEL, ids=msg_id)
+            for chunk in client.iter_download(msg.media, chunk_size=512*1024):
+                yield chunk
     return Response(generate(), mimetype='video/mp4', headers={
         'Accept-Ranges': 'bytes',
         'Content-Disposition': 'inline'
